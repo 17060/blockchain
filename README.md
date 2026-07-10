@@ -27,7 +27,37 @@ $ pipenv install
     * `$ pipenv run python blockchain.py` 
     * `$ pipenv run python blockchain.py -p 5001`
     * `$ pipenv run python blockchain.py --port 5002`
-    
+
+## IRC Hive Mind
+
+The IRC Hive Mind is a collective interface to a blockchain node. Everyone in an IRC channel shares the same view of the chain and can mine blocks, send transactions, link peer nodes, and run consensus together.
+
+1. Start a blockchain node (in one terminal):
+
+```
+$ pipenv run python blockchain.py
+```
+
+2. Start the hive mind bridge (in another terminal):
+
+```
+$ pipenv run python irc_hivemind.py --ssl --channel '#your-channel' --nick YourBotName
+```
+
+3. Join the channel and try hive commands:
+
+| Command | Description |
+| --- | --- |
+| `!help` | List available commands |
+| `!status` | Show current chain length |
+| `!mine` | Forge a new block |
+| `!chain [n]` | Show the last _n_ blocks (default 3) |
+| `!tx <recipient> <amount>` | Queue a transaction (sender is your IRC nick) |
+| `!peer <http://host:port>` | Register a peer node |
+| `!sync` | Run consensus with linked peers |
+
+Point multiple blockchain nodes at each other with `!peer`, then run `!sync` to let the hive agree on the longest valid chain.
+
 ## Docker
 
 Another option for running this blockchain program is to use Docker.  Follow the instructions below to create a local Docker container:
