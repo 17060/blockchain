@@ -7,6 +7,8 @@ from uuid import uuid4
 import requests
 from flask import Flask, jsonify, request
 
+from astrology import build_chart, get_sun_sign
+
 
 class Blockchain:
     def __init__(self):
@@ -137,6 +139,37 @@ class Blockchain:
         })
 
         return self.last_block['index'] + 1
+
+    def new_chart_transaction(self, owner, birth_date):
+        """
+        Register a birth chart on the blockchain.
+
+        :param owner: Address of the chart owner
+        :param birth_date: Birth date in YYYY-MM-DD format
+        :return: The index of the Block that will hold this transaction
+        """
+        chart = build_chart(birth_date)
+        self.current_transactions.append({
+            'sender': owner,
+            'recipient': 'astrology-registry',
+            'amount': 0,
+            'transaction_type': 'birth_chart',
+            'birth_date': chart['birth_date'],
+            'sun_sign': chart['sun_sign'],
+            'element': chart['element'],
+            'modality': chart['modality'],
+        })
+
+        return self.last_block['index'] + 1
+
+    def get_charts(self):
+        """Return all birth chart transactions recorded on the chain."""
+        charts = []
+        for block in self.chain:
+            for transaction in block['transactions']:
+                if transaction.get('transaction_type') == 'birth_chart':
+                    charts.append(transaction)
+        return charts
 
     @property
     def last_block(self):
@@ -288,6 +321,46 @@ def consensus():
         }
 
     return jsonify(response), 200
+
+
+@app.route('/astrology/sign', methods=['GET'])
+def astrology_sign():
+    birth_date = request.args.get('birth_date')
+    if not birth_date:
+        return jsonify({'error': 'birth_date query parameter is required (YYYY-MM-DD)'}), 400
+
+    try:
+        chart = build_chart(birth_date)
+    except ValueError as exc:
+        return jsonify({'error': str(exc)}), 400
+
+    return jsonify(chart), 200
+
+
+@app.route('/astrology/charts', methods=['GET'])
+def astrology_charts():
+    return jsonify({'charts': blockchain.get_charts()}), 200
+
+
+@app.route('/astrology/charts', methods=['POST'])
+def register_chart():
+    values = request.get_json() or {}
+
+    required = ['owner', 'birth_date']
+    if not all(k in values for k in required):
+        return jsonify({'error': 'owner and birth_date are required'}), 400
+
+    try:
+        index = blockchain.new_chart_transaction(values['owner'], values['birth_date'])
+        chart = build_chart(values['birth_date'])
+    except ValueError as exc:
+        return jsonify({'error': str(exc)}), 400
+
+    response = {
+        'message': f'Birth chart will be added to Block {index}',
+        'chart': chart,
+    }
+    return jsonify(response), 201
 
 
 if __name__ == '__main__':
