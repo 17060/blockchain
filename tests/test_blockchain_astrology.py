@@ -1,0 +1,33 @@
+from unittest import TestCase
+
+from blockchain import Blockchain
+
+
+class BlockchainAstrologyTestCase(TestCase):
+
+    def setUp(self):
+        self.blockchain = Blockchain()
+
+    def test_register_chart_transaction(self):
+        index = self.blockchain.new_chart_transaction('alice', '1990-07-13')
+
+        self.assertEqual(index, 2)
+        transaction = self.blockchain.current_transactions[0]
+        self.assertEqual(transaction['transaction_type'], 'birth_chart')
+        self.assertEqual(transaction['sender'], 'alice')
+        self.assertEqual(transaction['sun_sign'], 'cancer')
+
+    def test_get_charts_from_chain(self):
+        self.blockchain.new_chart_transaction('alice', '1990-07-13')
+        self.blockchain.new_block(proof=123, previous_hash='abc')
+        self.blockchain.new_chart_transaction('bob', '1990-03-21')
+        self.blockchain.new_block(proof=456, previous_hash='def')
+
+        charts = self.blockchain.get_charts()
+        self.assertEqual(len(charts), 2)
+        self.assertEqual(charts[0]['sender'], 'alice')
+        self.assertEqual(charts[1]['sun_sign'], 'aries')
+
+    def test_invalid_chart_date_raises(self):
+        with self.assertRaises(ValueError):
+            self.blockchain.new_chart_transaction('alice', 'invalid-date')

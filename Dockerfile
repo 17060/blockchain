@@ -8,7 +8,8 @@ RUN cd /app && \
     pip install -r requirements.txt
 
 # Add actual source code.
-ADD blockchain.py /app
+ADD astrology.py blockchain.py /app/
+ADD tests /app/tests
 
 EXPOSE 5000
 
