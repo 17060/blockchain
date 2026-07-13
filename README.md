@@ -69,3 +69,38 @@ https://www.visualstudio.com/vs/
 
 Contributions are welcome! Please feel free to submit a Pull Request.
 
+## IRC Server for iOS
+
+This repo includes a lightweight IRC server you can run locally and connect to from an iOS device on the same Wi‑Fi network.
+
+### Start the server
+
+```bash
+$ pipenv run python irc_server.py
+```
+
+Optional flags:
+
+```bash
+$ pipenv run python irc_server.py --port 6667 --verbose
+```
+
+When the server starts, it prints your LAN IP address. Use that IP from your iPhone or iPad.
+
+### Connect from iOS
+
+1. Install an IRC client such as [LimeChat](https://limechat.net/), [Palaver](https://palaverapp.com/), or Colloquy.
+2. Add a new server with these settings:
+   - **Server / Host:** your computer's LAN IP (shown when the server starts)
+   - **Port:** `6667`
+   - **SSL / TLS:** off (this test server does not use TLS)
+   - **Nickname:** any name you like
+3. Join a channel, for example `#general`.
+4. Chat with other clients connected to the same server.
+
+### Notes
+
+- The server binds to `0.0.0.0` so iOS devices on your local network can reach it.
+- This is intended for local testing, not production use.
+- If connection fails, confirm your Mac or Linux firewall allows inbound TCP on port `6667`.
+
