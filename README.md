@@ -40,3 +40,7 @@ python -m unittest discover -s tests -v
 ```
 
 Entertainment/education only. Not financial advice.
+
+## Original blockchain tutorial
+
+This repository also contains the source for [Building a Blockchain](https://medium.com/p/117428612f46). Book materials: https://github.com/dvf/blockchain-book
