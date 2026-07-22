@@ -352,7 +352,12 @@ def _page(pulse=None, charts=None, briefing=None, error=None, form=None, status=
 
 @app.errorhandler(404)
 def not_found(_error):
+    try:
+        pulse = daily_market_pulse()
+    except Exception:
+        pulse = None
     return _page(
+        pulse=pulse,
         error='Page not found. Use the home form below, or open /health for API status.',
         status=404,
     )
