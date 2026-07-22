@@ -1,71 +1,43 @@
-# Are you looking for the source code for my book?
+# AstroEconomics
 
-Please find it here: https://github.com/dvf/blockchain-book
+A working astrology + astroeconomics app on top of the classic blockchain demo.
 
-The book is available on Amazon: https://www.amazon.com/Learn-Blockchain-Building-Understanding-Cryptocurrencies/dp/1484251709
+## Run
 
-# Learn Blockchains by Building One
-
-[![Build Status](https://travis-ci.org/dvf/blockchain.svg?branch=master)](https://travis-ci.org/dvf/blockchain)
-
-This is the source code for my post on [Building a Blockchain](https://medium.com/p/117428612f46). 
-
-## Installation
-
-1. Make sure [Python 3.6+](https://www.python.org/downloads/) is installed. 
-2. Install [pipenv](https://github.com/kennethreitz/pipenv). 
-
-```
-$ pip install pipenv 
-```
-3. Install requirements  
-```
-$ pipenv install 
-``` 
-
-4. Run the server:
-    * `$ pipenv run python blockchain.py` 
-    * `$ pipenv run python blockchain.py -p 5001`
-    * `$ pipenv run python blockchain.py --port 5002`
-    
-## Docker
-
-Another option for running this blockchain program is to use Docker.  Follow the instructions below to create a local Docker container:
-
-1. Clone this repository
-2. Build the docker container
-
-```
-$ docker build -t blockchain .
+```bash
+pip install -r requirements.txt
+python blockchain.py
 ```
 
-3. Run the container
+Open the app URL printed when the server starts (or the public tunnel URL if one was created).
 
+You should see:
+
+- Today's market pulse (aura, moon, leading sign)
+- A birth-date form (no JavaScript required)
+- Watchlist, index picture, 7-day forecast
+- On-chain chart registry
+
+A static snapshot is also at `astroeconomics.html` — open that file in any browser to view the UI offline.
+
+## API
+
+```bash
+curl http://127.0.0.1:5000/health
+curl http://127.0.0.1:5000/astroeconomics/pulse
+curl -X POST http://127.0.0.1:5000/astroeconomics/briefing \
+  -H "Content-Type: application/json" \
+  -d '{"owner":"alice","birth_date":"1990-07-13","register":true}'
 ```
-$ docker run --rm -p 80:5000 blockchain
+
+## Tests
+
+```bash
+python -m unittest discover -s tests -v
 ```
 
-4. To add more instances, vary the public port number before the colon:
+Entertainment/education only. Not financial advice.
 
-```
-$ docker run --rm -p 81:5000 blockchain
-$ docker run --rm -p 82:5000 blockchain
-$ docker run --rm -p 83:5000 blockchain
-```
+## Original blockchain tutorial
 
-## Installation (C# Implementation)
-
-1. Install a free copy of Visual Studio IDE (Community Edition):
-https://www.visualstudio.com/vs/
-
-2. Once installed, open the solution file (BlockChain.sln) using the File > Open > Project/Solution menu options within Visual Studio.
-
-3. From within the "Solution Explorer", right click the BlockChain.Console project and select the "Set As Startup Project" option.
-
-4. Click the "Start" button, or hit F5 to run. The program executes in a console window, and is controlled via HTTP with the same commands as the Python version.
-
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
+This repository also contains the source for [Building a Blockchain](https://medium.com/p/117428612f46). Book materials: https://github.com/dvf/blockchain-book

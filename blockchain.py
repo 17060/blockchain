@@ -1,11 +1,16 @@
 import hashlib
 import json
+import threading
 from time import time
 from urllib.parse import urlparse
 from uuid import uuid4
 
 import requests
 from flask import Flask, jsonify, request
+
+from astrology import build_chart
+from astroeconomics import daily_market_pulse, personal_briefing, sign_market_profile
+from ui import render_app
 
 
 class Blockchain:
@@ -23,15 +28,19 @@ class Blockchain:
 
         :param address: Address of node. Eg. 'http://192.168.0.5:5000'
         """
-
-        parsed_url = urlparse(address)
-        if parsed_url.netloc:
-            self.nodes.add(parsed_url.netloc)
-        elif parsed_url.path:
-            # Accepts an URL without scheme like '192.168.0.5:5000'.
-            self.nodes.add(parsed_url.path)
-        else:
+        if not isinstance(address, str) or not address.strip():
             raise ValueError('Invalid URL')
+
+        candidate = address.strip()
+        if '://' not in candidate:
+            candidate = 'http://{0}'.format(candidate)
+
+        parsed_url = urlparse(candidate)
+        # Require host[:port] only — reject path-bearing or scheme-broken values.
+        if not parsed_url.netloc or parsed_url.path not in ('', '/'):
+            raise ValueError('Invalid URL')
+
+        self.nodes.add(parsed_url.netloc)
 
 
     def valid_chain(self, chain):
@@ -47,9 +56,6 @@ class Blockchain:
 
         while current_index < len(chain):
             block = chain[current_index]
-            print(f'{last_block}')
-            print(f'{block}')
-            print("\n-----------\n")
             # Check that the hash of the block is correct
             last_block_hash = self.hash(last_block)
             if block['previous_hash'] != last_block_hash:
@@ -72,7 +78,7 @@ class Blockchain:
         :return: True if our chain was replaced, False if not
         """
 
-        neighbours = self.nodes
+        neighbours = list(self.nodes)
         new_chain = None
 
         # We're only looking for chains longer than ours
@@ -80,11 +86,18 @@ class Blockchain:
 
         # Grab and verify the chains from all the nodes in our network
         for node in neighbours:
-            response = requests.get(f'http://{node}/chain')
+            try:
+                response = requests.get(
+                    'http://{0}/chain'.format(node),
+                    timeout=3,
+                )
+            except requests.RequestException:
+                continue
 
             if response.status_code == 200:
-                length = response.json()['length']
-                chain = response.json()['chain']
+                payload = response.json()
+                length = payload['length']
+                chain = payload['chain']
 
                 # Check if the length is longer and the chain is valid
                 if length > max_length and self.valid_chain(chain):
@@ -94,6 +107,7 @@ class Blockchain:
         # Replace our chain if we discovered a new, valid chain longer than ours
         if new_chain:
             self.chain = new_chain
+            self.current_transactions = []
             return True
 
         return False
@@ -137,6 +151,46 @@ class Blockchain:
         })
 
         return self.last_block['index'] + 1
+
+    def new_chart_transaction(self, owner, birth_date):
+        """
+        Register a birth chart on the blockchain.
+
+        :param owner: Address of the chart owner
+        :param birth_date: Birth date in YYYY-MM-DD format
+        :return: The index of the Block that will hold this transaction
+        """
+        chart = build_chart(birth_date)
+        self.current_transactions.append({
+            'sender': owner,
+            'recipient': 'astrology-registry',
+            'amount': 0,
+            'transaction_type': 'birth_chart',
+            'birth_date': chart['birth_date'],
+            'sun_sign': chart['sun_sign'],
+            'element': chart['element'],
+            'modality': chart['modality'],
+            'ruler': chart['ruler'],
+            'glyph': chart['glyph'],
+        })
+
+        return self.last_block['index'] + 1
+
+    def get_charts(self):
+        """Return all birth chart transactions recorded on the chain."""
+        charts = []
+        for block in self.chain:
+            for transaction in block['transactions']:
+                if transaction.get('transaction_type') == 'birth_chart':
+                    charts.append(transaction)
+        return charts
+
+    def reset(self):
+        """Reset chain state (used by tests)."""
+        self.current_transactions = []
+        self.chain = []
+        self.nodes = set()
+        self.new_block(previous_hash='1', proof=100)
 
     @property
     def last_block(self):
@@ -193,31 +247,63 @@ class Blockchain:
 
 # Instantiate the Node
 app = Flask(__name__)
+try:
+    app.json.ensure_ascii = False
+except Exception:
+    app.config['JSON_AS_ASCII'] = False
 
 # Generate a globally unique address for this node
 node_identifier = str(uuid4()).replace('-', '')
 
 # Instantiate the Blockchain
 blockchain = Blockchain()
+_chain_lock = threading.Lock()
+
+
+def mine_pending_block():
+    """Run proof-of-work and seal current transactions into a new block."""
+    with _chain_lock:
+        last_block = blockchain.last_block
+        proof = blockchain.proof_of_work(last_block)
+        blockchain.new_transaction(
+            sender='0',
+            recipient=node_identifier,
+            amount=1,
+        )
+        return blockchain.new_block(proof, blockchain.hash(last_block))
+
+
+def register_and_mine_chart(owner, birth_date):
+    """Validate, append a birth chart, and mine it atomically."""
+    chart = build_chart(birth_date)
+    with _chain_lock:
+        blockchain.current_transactions.append({
+            'sender': owner,
+            'recipient': 'astrology-registry',
+            'amount': 0,
+            'transaction_type': 'birth_chart',
+            'birth_date': chart['birth_date'],
+            'sun_sign': chart['sun_sign'],
+            'element': chart['element'],
+            'modality': chart['modality'],
+            'ruler': chart['ruler'],
+            'glyph': chart['glyph'],
+        })
+        index = blockchain.last_block['index'] + 1
+        last_block = blockchain.last_block
+        proof = blockchain.proof_of_work(last_block)
+        blockchain.new_transaction(
+            sender='0',
+            recipient=node_identifier,
+            amount=1,
+        )
+        block = blockchain.new_block(proof, blockchain.hash(last_block))
+        return index, block, chart
 
 
 @app.route('/mine', methods=['GET'])
 def mine():
-    # We run the proof of work algorithm to get the next proof...
-    last_block = blockchain.last_block
-    proof = blockchain.proof_of_work(last_block)
-
-    # We must receive a reward for finding the proof.
-    # The sender is "0" to signify that this node has mined a new coin.
-    blockchain.new_transaction(
-        sender="0",
-        recipient=node_identifier,
-        amount=1,
-    )
-
-    # Forge the new Block by adding it to the chain
-    previous_hash = blockchain.hash(last_block)
-    block = blockchain.new_block(proof, previous_hash)
+    block = mine_pending_block()
 
     response = {
         'message': "New Block Forged",
@@ -231,15 +317,21 @@ def mine():
 
 @app.route('/transactions/new', methods=['POST'])
 def new_transaction():
-    values = request.get_json()
+    values = request.get_json(silent=True) or {}
 
     # Check that the required fields are in the POST'ed data
     required = ['sender', 'recipient', 'amount']
     if not all(k in values for k in required):
-        return 'Missing values', 400
+        return jsonify({'error': 'sender, recipient, and amount are required'}), 400
 
-    # Create a new Transaction
-    index = blockchain.new_transaction(values['sender'], values['recipient'], values['amount'])
+    amount = values['amount']
+    if not isinstance(amount, (int, float)) or isinstance(amount, bool):
+        return jsonify({'error': 'amount must be a number'}), 400
+
+    with _chain_lock:
+        index = blockchain.new_transaction(
+            values['sender'], values['recipient'], amount
+        )
 
     response = {'message': f'Transaction will be added to Block {index}'}
     return jsonify(response), 201
@@ -256,14 +348,18 @@ def full_chain():
 
 @app.route('/nodes/register', methods=['POST'])
 def register_nodes():
-    values = request.get_json()
+    values = request.get_json(silent=True) or {}
 
     nodes = values.get('nodes')
-    if nodes is None:
-        return "Error: Please supply a valid list of nodes", 400
+    if not isinstance(nodes, list) or not nodes:
+        return jsonify({'error': 'Please supply a valid list of nodes'}), 400
 
-    for node in nodes:
-        blockchain.register_node(node)
+    try:
+        with _chain_lock:
+            for node in nodes:
+                blockchain.register_node(node)
+    except ValueError as exc:
+        return jsonify({'error': str(exc)}), 400
 
     response = {
         'message': 'New nodes have been added',
@@ -274,20 +370,197 @@ def register_nodes():
 
 @app.route('/nodes/resolve', methods=['GET'])
 def consensus():
-    replaced = blockchain.resolve_conflicts()
+    with _chain_lock:
+        replaced = blockchain.resolve_conflicts()
+        chain = list(blockchain.chain)
 
     if replaced:
         response = {
             'message': 'Our chain was replaced',
-            'new_chain': blockchain.chain
+            'new_chain': chain,
         }
     else:
         response = {
             'message': 'Our chain is authoritative',
-            'chain': blockchain.chain
+            'chain': chain,
         }
 
     return jsonify(response), 200
+
+
+@app.route('/health')
+def health():
+    return jsonify({
+        'status': 'ok',
+        'service': 'AstroEconomics',
+        'charts': len(blockchain.get_charts()),
+        'blocks': len(blockchain.chain),
+    }), 200
+
+
+def _page(pulse=None, charts=None, briefing=None, error=None, form=None, status=200):
+    html = render_app(
+        pulse=pulse,
+        charts=charts if charts is not None else blockchain.get_charts(),
+        briefing=briefing,
+        error=error,
+        form=form,
+    )
+    return html, status, {'Content-Type': 'text/html; charset=utf-8'}
+
+
+@app.errorhandler(404)
+def not_found(_error):
+    try:
+        pulse = daily_market_pulse()
+    except Exception:
+        pulse = None
+    return _page(
+        pulse=pulse,
+        error='Page not found. Use the home form below, or open /health for API status.',
+        status=404,
+    )
+
+
+@app.route('/', methods=['GET', 'POST'])
+def home():
+    """Serve a plain HTML app. Works with no JavaScript."""
+    error = None
+    briefing = None
+    form = {
+        'owner': '',
+        'birth_date': '',
+        'register': True,
+    }
+
+    if request.method == 'POST':
+        form['owner'] = (request.form.get('owner') or '').strip()
+        form['birth_date'] = (request.form.get('birth_date') or '').strip()
+        form['register'] = request.form.get('register') in ('1', 'on', 'true', 'yes')
+        if not form['birth_date']:
+            error = 'Birth date is required (YYYY-MM-DD).'
+        else:
+            try:
+                briefing = personal_briefing(
+                    form['birth_date'],
+                    owner=form['owner'] or 'anonymous',
+                )
+                if form['register']:
+                    owner_name = form['owner'] or 'anonymous'
+                    _index, block, _chart = register_and_mine_chart(
+                        owner_name, form['birth_date']
+                    )
+                    briefing['registered'] = True
+                    briefing['block_index'] = block['index']
+                else:
+                    briefing['registered'] = False
+            except ValueError as exc:
+                error = str(exc)
+
+    try:
+        pulse = daily_market_pulse()
+    except Exception:
+        pulse = None
+
+    return _page(pulse=pulse, briefing=briefing, error=error, form=form)
+
+
+@app.route('/astrology/sign', methods=['GET'])
+def astrology_sign():
+    birth_date = request.args.get('birth_date')
+    if not birth_date:
+        return jsonify({'error': 'birth_date query parameter is required (YYYY-MM-DD)'}), 400
+
+    try:
+        chart = build_chart(birth_date)
+        profile = sign_market_profile(chart['sun_sign'])
+    except ValueError as exc:
+        return jsonify({'error': str(exc)}), 400
+
+    response = dict(chart)
+    response['sectors'] = profile['sectors']
+    response['bias'] = profile['bias']
+    response['assets'] = profile['assets']
+    return jsonify(response), 200
+
+
+@app.route('/astrology/charts', methods=['GET'])
+def astrology_charts():
+    return jsonify({'charts': blockchain.get_charts()}), 200
+
+
+@app.route('/astrology/charts', methods=['POST'])
+def register_chart():
+    values = request.get_json(silent=True) or {}
+
+    required = ['owner', 'birth_date']
+    if not all(k in values for k in required):
+        return jsonify({'error': 'owner and birth_date are required'}), 400
+
+    try:
+        _index, block, chart = register_and_mine_chart(
+            values['owner'], values['birth_date']
+        )
+    except ValueError as exc:
+        return jsonify({'error': str(exc)}), 400
+
+    response = {
+        'message': 'Birth chart registered and mined into block {0}'.format(block['index']),
+        'chart': chart,
+        'block_index': block['index'],
+    }
+    return jsonify(response), 201
+
+
+@app.route('/astroeconomics/pulse', methods=['GET'])
+def astroeconomics_pulse():
+    """Daily sky + market pulse for the home screen."""
+    on_date = request.args.get('date')
+    try:
+        pulse = daily_market_pulse(on_date)
+    except ValueError as exc:
+        return jsonify({'error': str(exc)}), 400
+    return jsonify(pulse), 200
+
+
+@app.route('/astroeconomics/briefing', methods=['GET', 'POST'])
+def astroeconomics_briefing():
+    """Personalized astrology + market briefing for a birth date."""
+    if request.method == 'POST':
+        values = request.get_json(silent=True) or {}
+        birth_date = values.get('birth_date')
+        on_date = values.get('date')
+        owner = values.get('owner')
+        persist = bool(values.get('register'))
+    else:
+        birth_date = request.args.get('birth_date')
+        on_date = request.args.get('date')
+        owner = request.args.get('owner')
+        persist = request.args.get('register') in ('1', 'true', 'yes')
+
+    if not birth_date:
+        return jsonify({'error': 'birth_date is required (YYYY-MM-DD)'}), 400
+
+    try:
+        briefing = personal_briefing(birth_date, on_date=on_date, owner=owner)
+    except ValueError as exc:
+        return jsonify({'error': str(exc)}), 400
+
+    if persist:
+        owner_name = owner or 'anonymous'
+        try:
+            index, block, _chart = register_and_mine_chart(owner_name, birth_date)
+        except ValueError as exc:
+            return jsonify({'error': str(exc)}), 400
+        briefing['registered'] = True
+        briefing['block_index'] = block['index']
+        briefing['message'] = 'Chart queued at index {0} and mined into block {1}'.format(
+            index, block['index']
+        )
+    else:
+        briefing['registered'] = False
+
+    return jsonify(briefing), 200
 
 
 if __name__ == '__main__':
@@ -298,4 +571,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
     port = args.port
 
-    app.run(host='0.0.0.0', port=port)
+    print('AstroEconomics ready at http://127.0.0.1:{0}/'.format(port))
+    print('If you need a public link, run: npx localtunnel --port {0}'.format(port))
+    app.run(host='0.0.0.0', port=port, threaded=True)
+

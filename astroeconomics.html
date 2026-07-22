@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AstroEconomics</title>
+<style>
+body{margin:0;font-family:Georgia,Times,serif;background:#eef3f0;color:#10233a;line-height:1.45}
+a{color:#065f5a}
+.banner{background:#10233a;color:#fff;padding:12px 16px;font-family:Arial,Helvetica,sans-serif;font-size:14px}
+.banner strong{font-size:16px}
+.wrap{max-width:960px;margin:0 auto;padding:24px 16px 48px}
+h1{font-size:42px;line-height:1;margin:0 0 8px;letter-spacing:-1px;color:#10233a}
+h2{font-size:24px;margin:32px 0 8px;border-top:1px solid #c5d0c9;padding-top:20px;color:#10233a}
+p.lead{font-size:18px;color:#3a4f66;max-width:36em}
+.grid{display:block}
+.card{background:#fff;border:1px solid #c5d0c9;padding:14px 16px;margin:10px 0}
+label{display:block;margin:10px 0 4px;font-weight:bold}
+input[type=text],input[type=date]{width:100%;max-width:320px;padding:10px;font:inherit;border:1px solid #8aa;background:#fff;color:#10233a}
+button,.btn{display:inline-block;margin-top:14px;padding:10px 16px;background:#10233a;color:#fff;
+border:0;font:inherit;cursor:pointer;text-decoration:none}
+table{width:100%;border-collapse:collapse;margin-top:10px;background:#fff}
+th,td{border:1px solid #c5d0c9;padding:8px;text-align:left;vertical-align:top;color:#10233a}
+th{background:#dfe9e4}
+.error{color:#8a2a2a;background:#f8eaea;padding:10px;border:1px solid #e0b4b4}
+.ok{color:#065f5a;background:#e7f4f1;padding:10px;border:1px solid #9cc}
+.muted{color:#3a4f66}
+@media(min-width:800px){.grid{display:flex;gap:12px}.grid .card{flex:1}}
+</style>
+</head>
+<body>
+<div class="banner"><strong>AstroEconomics</strong> &mdash; app is running. Enter a birth date below for your market briefing.</div>
+<div class="wrap">
+<h1>Read the sky. Time the market.</h1>
+<p class="lead">Daily planetary weather mapped to sectors, indexes, and your birth chart, then sealed on a local blockchain registry.</p>
+<p class="muted">Entertainment and education only. Not financial advice.</p>
+<h2>Today's market pulse</h2>
+<div class="grid">
+<div class="card"><strong>Market aura</strong><br><span style="font-size:36px">54</span><br>Neutral / wait for clarity</div>
+<div class="card"><strong>Sky now</strong><br>First Quarter<br>Sun in Cancer · Mercury day · Mercury retrograde</div>
+<div class="card"><strong>Leading sign</strong><br>♋ Cancer<br>Aura 61 · Housing, Food, Retail</div>
+</div>
+<h2>Your chart briefing</h2>
+<div class="card">
+<form method="post" action="/">
+<label for="owner">Your name</label>
+<input id="owner" name="owner" type="text" value="" placeholder="Ada">
+<label for="birth_date">Birth date</label>
+<input id="birth_date" name="birth_date" type="date" required value="">
+<label><input type="checkbox" name="register" value="1" checked> Register chart on-chain</label>
+<button type="submit">Get briefing</button>
+</form>
+</div>
+<h2>Market pulse</h2>
+<h3>Cosmic watchlist</h3>
+<table><tr><th>Symbol</th><th>Name</th><th>Aura</th><th>Why</th></tr>
+<tr><td>XHB</td><td>SPDR S&amp;P Homebuilders</td><td>61</td><td>Cancer affinity (defensive demand) with aura 61</td></tr>
+<tr><td>COST</td><td>Costco</td><td>61</td><td>Cancer affinity (defensive demand) with aura 61</td></tr>
+<tr><td>WMT</td><td>Walmart</td><td>61</td><td>Cancer affinity (defensive demand) with aura 61</td></tr>
+<tr><td>XLC</td><td>Communication Services Select Sector</td><td>58</td><td>Gemini affinity (information flow) with aura 58</td></tr>
+<tr><td>UBER</td><td>Uber</td><td>58</td><td>Gemini affinity (information flow) with aura 58</td></tr>
+<tr><td>DIS</td><td>Disney</td><td>58</td><td>Gemini affinity (information flow) with aura 58</td></tr>
+</table>
+<h3>Index picture</h3>
+<table><tr><th>Symbol</th><th>Name</th><th>Sign</th><th>Aura</th><th>Sentiment</th></tr>
+<tr><td>SPX</td><td>S&amp;P 500</td><td>♑ Capricorn</td><td>45</td><td>mixed</td></tr>
+<tr><td>NDX</td><td>Nasdaq 100</td><td>♒ Aquarius</td><td>50</td><td>mixed</td></tr>
+<tr><td>DJI</td><td>Dow Jones</td><td>♉ Taurus</td><td>44</td><td>defensive</td></tr>
+<tr><td>BTC</td><td>Bitcoin</td><td>♏ Scorpio</td><td>47</td><td>mixed</td></tr>
+<tr><td>ETH</td><td>Ethereum</td><td>♓ Pisces</td><td>52</td><td>mixed</td></tr>
+<tr><td>GLD</td><td>Gold</td><td>♌ Leo</td><td>50</td><td>mixed</td></tr>
+</table>
+<h2>Seven-day sky</h2>
+<table><tr><th>Day</th><th>Date</th><th>Moon</th><th>Intensity</th><th>Note</th></tr>
+<tr><td>Wed</td><td>07-22</td><td>First Quarter</td><td>80</td><td>Mercury retrograde: favor reviews, hedges, and rebalancing.</td></tr>
+<tr><td>Thu</td><td>07-23</td><td>Waxing Gibbous</td><td>82</td><td>Mercury retrograde: favor reviews, hedges, and rebalancing.</td></tr>
+<tr><td>Fri</td><td>07-24</td><td>Waxing Gibbous</td><td>75</td><td>Venus day — consumer, luxury, and quality factors can lead.</td></tr>
+<tr><td>Sat</td><td>07-25</td><td>Waxing Gibbous</td><td>77</td><td>Saturn day — favor discipline, blue chips, and risk limits.</td></tr>
+<tr><td>Sun</td><td>07-26</td><td>Waxing Gibbous</td><td>78</td><td>Quiet lunar weather — let process, not impulse, set the pace.</td></tr>
+<tr><td>Mon</td><td>07-27</td><td>Full Moon</td><td>91</td><td>Full Moon pressure — expect sharper swings and profit-taking.</td></tr>
+<tr><td>Tue</td><td>07-28</td><td>Full Moon</td><td>99</td><td>Full Moon pressure — expect sharper swings and profit-taking.</td></tr>
+</table>
+<h2>On-chain chart registry</h2>
+<table><tr><th>Owner</th><th>Sign</th><th>Birth date</th><th>Element</th></tr>
+<tr><td>c-1</td><td>♋ Cancer</td><td>1990-07-13</td><td>water / cardinal</td></tr>
+<tr><td>c-3</td><td>♋ Cancer</td><td>1990-07-13</td><td>water / cardinal</td></tr>
+<tr><td>c-0</td><td>♋ Cancer</td><td>1990-07-13</td><td>water / cardinal</td></tr>
+<tr><td>c-2</td><td>♋ Cancer</td><td>1990-07-13</td><td>water / cardinal</td></tr>
+</table>
+<p class="muted" style="margin-top:32px">API: <a href="/health">/health</a> · <a href="/astroeconomics/pulse">/astroeconomics/pulse</a> · <a href="/astrology/charts">/astrology/charts</a></p>
+</div></body></html>
