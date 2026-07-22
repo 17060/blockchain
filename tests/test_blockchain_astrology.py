@@ -45,6 +45,7 @@ class AppRoutesTestCase(TestCase):
         response = self.client.get('/')
         self.assertEqual(response.status_code, 200)
         self.assertIn(b'AstroEconomics', response.data)
+        self.assertIn(b'app is running', response.data)
         self.assertIn(b'Market aura', response.data)
         self.assertIn(b'Your chart briefing', response.data)
         self.assertIn(b'Cosmic watchlist', response.data)
@@ -52,6 +53,12 @@ class AppRoutesTestCase(TestCase):
         self.assertIn(b'<form method="post"', response.data)
         # No client-side boot dependency.
         self.assertNotIn(b'<script>', response.data)
+
+    def test_html_404(self):
+        response = self.client.get('/does-not-exist')
+        self.assertEqual(response.status_code, 404)
+        self.assertIn(b'Page not found', response.data)
+        self.assertIn(b'AstroEconomics', response.data)
 
     def test_home_form_briefing(self):
         response = self.client.post('/', data={

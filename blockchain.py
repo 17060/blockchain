@@ -339,6 +339,25 @@ def health():
     }), 200
 
 
+def _page(pulse=None, charts=None, briefing=None, error=None, form=None, status=200):
+    html = render_app(
+        pulse=pulse,
+        charts=charts if charts is not None else blockchain.get_charts(),
+        briefing=briefing,
+        error=error,
+        form=form,
+    )
+    return html, status, {'Content-Type': 'text/html; charset=utf-8'}
+
+
+@app.errorhandler(404)
+def not_found(_error):
+    return _page(
+        error='Page not found. Use the home form below, or open /health for API status.',
+        status=404,
+    )
+
+
 @app.route('/', methods=['GET', 'POST'])
 def home():
     """Serve a plain HTML app. Works with no JavaScript."""
@@ -378,14 +397,7 @@ def home():
     except Exception:
         pulse = None
 
-    html = render_app(
-        pulse=pulse,
-        charts=blockchain.get_charts(),
-        briefing=briefing,
-        error=error,
-        form=form,
-    )
-    return html, 200, {'Content-Type': 'text/html; charset=utf-8'}
+    return _page(pulse=pulse, briefing=briefing, error=error, form=form)
 
 
 @app.route('/astrology/sign', methods=['GET'])
@@ -495,5 +507,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
     port = args.port
 
+    print('AstroEconomics ready at http://127.0.0.1:{0}/'.format(port))
+    print('In Cursor: open Ports panel -> port {0} -> Open in Browser'.format(port))
     app.run(host='0.0.0.0', port=port, threaded=True)
 
