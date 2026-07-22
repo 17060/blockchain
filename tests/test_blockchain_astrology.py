@@ -1,6 +1,8 @@
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import date
 from unittest import TestCase
 
-from blockchain import Blockchain, app
+from blockchain import Blockchain, app, blockchain, register_and_mine_chart
 from ui import render_app
 
 
@@ -39,6 +41,7 @@ class AppRoutesTestCase(TestCase):
 
     def setUp(self):
         app.config['TESTING'] = True
+        blockchain.reset()
         self.client = app.test_client()
 
     def test_home_serves_app(self):
@@ -114,6 +117,38 @@ class AppRoutesTestCase(TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertIn('error', response.get_json())
 
+    def test_transaction_rejects_non_numeric_amount(self):
+        response = self.client.post('/transactions/new', json={
+            'sender': 'a',
+            'recipient': 'b',
+            'amount': 'nope',
+        })
+        self.assertEqual(response.status_code, 400)
+
+    def test_nodes_register_requires_list(self):
+        response = self.client.post('/nodes/register', json={'nodes': 'http://127.0.0.1:5001'})
+        self.assertEqual(response.status_code, 400)
+
+    def test_nodes_resolve_survives_bad_peer(self):
+        self.client.post('/nodes/register', json={'nodes': ['http://127.0.0.1:59999']})
+        response = self.client.get('/nodes/resolve')
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('message', response.get_json())
+
+    def test_concurrent_chart_registration_keeps_valid_chain(self):
+        def register(i):
+            return register_and_mine_chart('user-{0}'.format(i), '1990-07-13')
+
+        with ThreadPoolExecutor(max_workers=6) as pool:
+            futures = [pool.submit(register, i) for i in range(6)]
+            for future in as_completed(futures):
+                future.result()
+
+        chain = blockchain.chain
+        self.assertGreaterEqual(len(chain), 7)
+        self.assertTrue(blockchain.valid_chain(chain))
+        self.assertEqual(len(blockchain.get_charts()), 6)
+
 
 class UiRenderTestCase(TestCase):
 
@@ -122,3 +157,18 @@ class UiRenderTestCase(TestCase):
         self.assertIn('AstroEconomics', html)
         self.assertIn('boom', html)
         self.assertIn('<form method="post"', html)
+
+    def test_render_escapes_owner(self):
+        html = render_app(
+            pulse=None,
+            charts=[{
+                'sender': '<script>x</script>',
+                'glyph': '♈',
+                'sun_sign': 'aries',
+                'birth_date': '2000-01-01',
+                'element': 'fire',
+                'modality': 'cardinal',
+            }],
+        )
+        self.assertNotIn('<script>x</script>', html)
+        self.assertIn('&lt;script&gt;x&lt;/script&gt;', html)

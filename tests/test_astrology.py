@@ -67,3 +67,20 @@ class AstrologyTestCase(TestCase):
         forecast = cosmic_weather(date(2026, 7, 22), days=7)
         self.assertEqual(len(forecast), 7)
         self.assertIn('intensity', forecast[0])
+
+    def test_zodiac_cusps(self):
+        self.assertEqual(get_sun_sign('1990-01-19'), 'capricorn')
+        self.assertEqual(get_sun_sign('1990-01-20'), 'aquarius')
+        self.assertEqual(get_sun_sign('1990-12-21'), 'sagittarius')
+        self.assertEqual(get_sun_sign('1990-12-22'), 'capricorn')
+        self.assertEqual(get_sun_sign('1990-07-22'), 'cancer')
+        self.assertEqual(get_sun_sign('1990-07-23'), 'leo')
+
+    def test_leap_day_pisces(self):
+        self.assertEqual(get_sun_sign('2000-02-29'), 'pisces')
+
+    def test_mercury_retrograde_bounds(self):
+        self.assertFalse(is_mercury_retrograde(date(2026, 6, 28)))
+        self.assertTrue(is_mercury_retrograde(date(2026, 6, 29)))
+        self.assertTrue(is_mercury_retrograde(date(2026, 7, 23)))
+        self.assertFalse(is_mercury_retrograde(date(2026, 7, 24)))

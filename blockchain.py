@@ -1,5 +1,6 @@
 import hashlib
 import json
+import threading
 from time import time
 from urllib.parse import urlparse
 from uuid import uuid4
@@ -27,15 +28,19 @@ class Blockchain:
 
         :param address: Address of node. Eg. 'http://192.168.0.5:5000'
         """
-
-        parsed_url = urlparse(address)
-        if parsed_url.netloc:
-            self.nodes.add(parsed_url.netloc)
-        elif parsed_url.path:
-            # Accepts an URL without scheme like '192.168.0.5:5000'.
-            self.nodes.add(parsed_url.path)
-        else:
+        if not isinstance(address, str) or not address.strip():
             raise ValueError('Invalid URL')
+
+        candidate = address.strip()
+        if '://' not in candidate:
+            candidate = 'http://{0}'.format(candidate)
+
+        parsed_url = urlparse(candidate)
+        # Require host[:port] only — reject path-bearing or scheme-broken values.
+        if not parsed_url.netloc or parsed_url.path not in ('', '/'):
+            raise ValueError('Invalid URL')
+
+        self.nodes.add(parsed_url.netloc)
 
 
     def valid_chain(self, chain):
@@ -51,9 +56,6 @@ class Blockchain:
 
         while current_index < len(chain):
             block = chain[current_index]
-            print(f'{last_block}')
-            print(f'{block}')
-            print("\n-----------\n")
             # Check that the hash of the block is correct
             last_block_hash = self.hash(last_block)
             if block['previous_hash'] != last_block_hash:
@@ -76,7 +78,7 @@ class Blockchain:
         :return: True if our chain was replaced, False if not
         """
 
-        neighbours = self.nodes
+        neighbours = list(self.nodes)
         new_chain = None
 
         # We're only looking for chains longer than ours
@@ -84,11 +86,18 @@ class Blockchain:
 
         # Grab and verify the chains from all the nodes in our network
         for node in neighbours:
-            response = requests.get(f'http://{node}/chain')
+            try:
+                response = requests.get(
+                    'http://{0}/chain'.format(node),
+                    timeout=3,
+                )
+            except requests.RequestException:
+                continue
 
             if response.status_code == 200:
-                length = response.json()['length']
-                chain = response.json()['chain']
+                payload = response.json()
+                length = payload['length']
+                chain = payload['chain']
 
                 # Check if the length is longer and the chain is valid
                 if length > max_length and self.valid_chain(chain):
@@ -98,6 +107,7 @@ class Blockchain:
         # Replace our chain if we discovered a new, valid chain longer than ours
         if new_chain:
             self.chain = new_chain
+            self.current_transactions = []
             return True
 
         return False
@@ -175,6 +185,13 @@ class Blockchain:
                     charts.append(transaction)
         return charts
 
+    def reset(self):
+        """Reset chain state (used by tests)."""
+        self.current_transactions = []
+        self.chain = []
+        self.nodes = set()
+        self.new_block(previous_hash='1', proof=100)
+
     @property
     def last_block(self):
         return self.chain[-1]
@@ -240,18 +257,48 @@ node_identifier = str(uuid4()).replace('-', '')
 
 # Instantiate the Blockchain
 blockchain = Blockchain()
+_chain_lock = threading.Lock()
 
 
 def mine_pending_block():
     """Run proof-of-work and seal current transactions into a new block."""
-    last_block = blockchain.last_block
-    proof = blockchain.proof_of_work(last_block)
-    blockchain.new_transaction(
-        sender='0',
-        recipient=node_identifier,
-        amount=1,
-    )
-    return blockchain.new_block(proof, blockchain.hash(last_block))
+    with _chain_lock:
+        last_block = blockchain.last_block
+        proof = blockchain.proof_of_work(last_block)
+        blockchain.new_transaction(
+            sender='0',
+            recipient=node_identifier,
+            amount=1,
+        )
+        return blockchain.new_block(proof, blockchain.hash(last_block))
+
+
+def register_and_mine_chart(owner, birth_date):
+    """Validate, append a birth chart, and mine it atomically."""
+    chart = build_chart(birth_date)
+    with _chain_lock:
+        blockchain.current_transactions.append({
+            'sender': owner,
+            'recipient': 'astrology-registry',
+            'amount': 0,
+            'transaction_type': 'birth_chart',
+            'birth_date': chart['birth_date'],
+            'sun_sign': chart['sun_sign'],
+            'element': chart['element'],
+            'modality': chart['modality'],
+            'ruler': chart['ruler'],
+            'glyph': chart['glyph'],
+        })
+        index = blockchain.last_block['index'] + 1
+        last_block = blockchain.last_block
+        proof = blockchain.proof_of_work(last_block)
+        blockchain.new_transaction(
+            sender='0',
+            recipient=node_identifier,
+            amount=1,
+        )
+        block = blockchain.new_block(proof, blockchain.hash(last_block))
+        return index, block, chart
 
 
 @app.route('/mine', methods=['GET'])
@@ -277,8 +324,14 @@ def new_transaction():
     if not all(k in values for k in required):
         return jsonify({'error': 'sender, recipient, and amount are required'}), 400
 
-    # Create a new Transaction
-    index = blockchain.new_transaction(values['sender'], values['recipient'], values['amount'])
+    amount = values['amount']
+    if not isinstance(amount, (int, float)) or isinstance(amount, bool):
+        return jsonify({'error': 'amount must be a number'}), 400
+
+    with _chain_lock:
+        index = blockchain.new_transaction(
+            values['sender'], values['recipient'], amount
+        )
 
     response = {'message': f'Transaction will be added to Block {index}'}
     return jsonify(response), 201
@@ -298,11 +351,15 @@ def register_nodes():
     values = request.get_json(silent=True) or {}
 
     nodes = values.get('nodes')
-    if nodes is None:
+    if not isinstance(nodes, list) or not nodes:
         return jsonify({'error': 'Please supply a valid list of nodes'}), 400
 
-    for node in nodes:
-        blockchain.register_node(node)
+    try:
+        with _chain_lock:
+            for node in nodes:
+                blockchain.register_node(node)
+    except ValueError as exc:
+        return jsonify({'error': str(exc)}), 400
 
     response = {
         'message': 'New nodes have been added',
@@ -313,17 +370,19 @@ def register_nodes():
 
 @app.route('/nodes/resolve', methods=['GET'])
 def consensus():
-    replaced = blockchain.resolve_conflicts()
+    with _chain_lock:
+        replaced = blockchain.resolve_conflicts()
+        chain = list(blockchain.chain)
 
     if replaced:
         response = {
             'message': 'Our chain was replaced',
-            'new_chain': blockchain.chain
+            'new_chain': chain,
         }
     else:
         response = {
             'message': 'Our chain is authoritative',
-            'chain': blockchain.chain
+            'chain': chain,
         }
 
     return jsonify(response), 200
@@ -388,8 +447,9 @@ def home():
                 )
                 if form['register']:
                     owner_name = form['owner'] or 'anonymous'
-                    blockchain.new_chart_transaction(owner_name, form['birth_date'])
-                    block = mine_pending_block()
+                    _index, block, _chart = register_and_mine_chart(
+                        owner_name, form['birth_date']
+                    )
                     briefing['registered'] = True
                     briefing['block_index'] = block['index']
                 else:
@@ -438,14 +498,11 @@ def register_chart():
         return jsonify({'error': 'owner and birth_date are required'}), 400
 
     try:
-        blockchain.new_chart_transaction(values['owner'], values['birth_date'])
-        chart = build_chart(values['birth_date'])
+        _index, block, chart = register_and_mine_chart(
+            values['owner'], values['birth_date']
+        )
     except ValueError as exc:
         return jsonify({'error': str(exc)}), 400
-
-    # Persist the chart immediately so the app feels correct without a
-    # separate mine step. Mining still works for classic blockchain demos.
-    block = mine_pending_block()
 
     response = {
         'message': 'Birth chart registered and mined into block {0}'.format(block['index']),
@@ -491,8 +548,10 @@ def astroeconomics_briefing():
 
     if persist:
         owner_name = owner or 'anonymous'
-        index = blockchain.new_chart_transaction(owner_name, birth_date)
-        block = mine_pending_block()
+        try:
+            index, block, _chart = register_and_mine_chart(owner_name, birth_date)
+        except ValueError as exc:
+            return jsonify({'error': str(exc)}), 400
         briefing['registered'] = True
         briefing['block_index'] = block['index']
         briefing['message'] = 'Chart queued at index {0} and mined into block {1}'.format(
