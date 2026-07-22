@@ -5,9 +5,10 @@ from urllib.parse import urlparse
 from uuid import uuid4
 
 import requests
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, render_template, request
 
 from astrology import build_chart, get_sun_sign
+from astroeconomics import daily_market_pulse, personal_briefing, sign_market_profile
 
 
 class Blockchain:
@@ -158,6 +159,8 @@ class Blockchain:
             'sun_sign': chart['sun_sign'],
             'element': chart['element'],
             'modality': chart['modality'],
+            'ruler': chart['ruler'],
+            'glyph': chart['glyph'],
         })
 
         return self.last_block['index'] + 1
@@ -323,6 +326,12 @@ def consensus():
     return jsonify(response), 200
 
 
+@app.route('/')
+def home():
+    """Serve the AstroEconomics web app."""
+    return render_template('index.html')
+
+
 @app.route('/astrology/sign', methods=['GET'])
 def astrology_sign():
     birth_date = request.args.get('birth_date')
@@ -331,10 +340,15 @@ def astrology_sign():
 
     try:
         chart = build_chart(birth_date)
+        profile = sign_market_profile(chart['sun_sign'])
     except ValueError as exc:
         return jsonify({'error': str(exc)}), 400
 
-    return jsonify(chart), 200
+    response = dict(chart)
+    response['sectors'] = profile['sectors']
+    response['bias'] = profile['bias']
+    response['assets'] = profile['assets']
+    return jsonify(response), 200
 
 
 @app.route('/astrology/charts', methods=['GET'])
@@ -356,11 +370,79 @@ def register_chart():
     except ValueError as exc:
         return jsonify({'error': str(exc)}), 400
 
+    # Persist the chart immediately so the app feels correct without a
+    # separate mine step. Mining still works for classic blockchain demos.
+    last_block = blockchain.last_block
+    proof = blockchain.proof_of_work(last_block)
+    blockchain.new_transaction(
+        sender='0',
+        recipient=node_identifier,
+        amount=1,
+    )
+    block = blockchain.new_block(proof, blockchain.hash(last_block))
+
     response = {
-        'message': f'Birth chart will be added to Block {index}',
+        'message': 'Birth chart registered and mined into block {0}'.format(block['index']),
         'chart': chart,
+        'block_index': block['index'],
     }
     return jsonify(response), 201
+
+
+@app.route('/astroeconomics/pulse', methods=['GET'])
+def astroeconomics_pulse():
+    """Daily sky + market pulse for the home screen."""
+    on_date = request.args.get('date')
+    try:
+        pulse = daily_market_pulse(on_date)
+    except ValueError as exc:
+        return jsonify({'error': str(exc)}), 400
+    return jsonify(pulse), 200
+
+
+@app.route('/astroeconomics/briefing', methods=['GET', 'POST'])
+def astroeconomics_briefing():
+    """Personalized astrology + market briefing for a birth date."""
+    if request.method == 'POST':
+        values = request.get_json() or {}
+        birth_date = values.get('birth_date')
+        on_date = values.get('date')
+        owner = values.get('owner')
+        persist = bool(values.get('register'))
+    else:
+        birth_date = request.args.get('birth_date')
+        on_date = request.args.get('date')
+        owner = request.args.get('owner')
+        persist = request.args.get('register') in ('1', 'true', 'yes')
+
+    if not birth_date:
+        return jsonify({'error': 'birth_date is required (YYYY-MM-DD)'}), 400
+
+    try:
+        briefing = personal_briefing(birth_date, on_date=on_date, owner=owner)
+    except ValueError as exc:
+        return jsonify({'error': str(exc)}), 400
+
+    if persist:
+        owner_name = owner or 'anonymous'
+        index = blockchain.new_chart_transaction(owner_name, birth_date)
+        last_block = blockchain.last_block
+        proof = blockchain.proof_of_work(last_block)
+        blockchain.new_transaction(
+            sender='0',
+            recipient=node_identifier,
+            amount=1,
+        )
+        block = blockchain.new_block(proof, blockchain.hash(last_block))
+        briefing['registered'] = True
+        briefing['block_index'] = block['index']
+        briefing['message'] = 'Chart queued at index {0} and mined into block {1}'.format(
+            index, block['index']
+        )
+    else:
+        briefing['registered'] = False
+
+    return jsonify(briefing), 200
 
 
 if __name__ == '__main__':
@@ -372,3 +454,4 @@ if __name__ == '__main__':
     port = args.port
 
     app.run(host='0.0.0.0', port=port)
+

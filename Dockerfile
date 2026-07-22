@@ -1,4 +1,4 @@
-FROM python:3.6-alpine
+FROM python:3.12-alpine
 
 WORKDIR /app
 
@@ -8,7 +8,9 @@ RUN cd /app && \
     pip install -r requirements.txt
 
 # Add actual source code.
-ADD astrology.py blockchain.py /app/
+ADD astrology.py astroeconomics.py blockchain.py /app/
+ADD templates /app/templates
+ADD static /app/static
 ADD tests /app/tests
 
 EXPOSE 5000

@@ -1,65 +1,76 @@
-# Learn Blockchains by Building One
+# AstroEconomics
 
-[![Build Status](https://travis-ci.org/dvf/blockchain.svg?branch=master)](https://travis-ci.org/dvf/blockchain)
+A working astrology + astroeconomics app on top of the classic blockchain demo.
 
-This is the source code for my post on [Building a Blockchain](https://medium.com/p/117428612f46). 
+Open `http://localhost:5000` for the full screen:
 
-## Installation
+- Daily cosmic market pulse (moon phase, planetary day, Mercury retrograde, aura score)
+- Personal birth-chart briefing with financial horoscope and aligned watchlist
+- Sector affinities and index picture for all twelve signs
+- Seven-day sky forecast
+- On-chain birth-chart registry (charts are mined into blocks automatically)
 
-1. Make sure [Python 3.6+](https://www.python.org/downloads/) is installed. 
-2. Install [pipenv](https://github.com/kennethreitz/pipenv). 
+For entertainment and education only. Not financial advice.
 
+## Quick start
+
+```bash
+pip install -r requirements.txt
+python blockchain.py
 ```
-$ pip install pipenv 
-```
-3. Install requirements  
-```
-$ pipenv install 
-``` 
 
-4. Run the server:
-    * `$ pipenv run python blockchain.py` 
-    * `$ pipenv run python blockchain.py -p 5001`
-    * `$ pipenv run python blockchain.py --port 5002`
-    
+Then visit [http://localhost:5000](http://localhost:5000).
+
+With pipenv:
+
+```bash
+pip install pipenv
+pipenv install
+pipenv run python blockchain.py
+```
+
+## API
+
+```bash
+# Daily sky + market pulse
+curl "http://localhost:5000/astroeconomics/pulse"
+
+# Personalized briefing (optional on-chain registration)
+curl -X POST http://localhost:5000/astroeconomics/briefing \
+  -H "Content-Type: application/json" \
+  -d '{"owner":"alice","birth_date":"1990-07-13","register":true}'
+
+# Sun sign + market affinities
+curl "http://localhost:5000/astrology/sign?birth_date=1990-07-13"
+
+# Registered charts
+curl http://localhost:5000/astrology/charts
+```
+
+Classic blockchain routes (`/mine`, `/chain`, `/transactions/new`, `/nodes/*`) still work.
+
+## Tests
+
+```bash
+python -m unittest discover -s tests -v
+```
+
 ## Docker
 
-Another option for running this blockchain program is to use Docker.  Follow the instructions below to create a local Docker container:
-
-1. Clone this repository
-2. Build the docker container
-
-```
-$ docker build -t blockchain .
+```bash
+docker build -t astroeconomics .
+docker run --rm -p 80:5000 astroeconomics
 ```
 
-3. Run the container
+Open [http://localhost](http://localhost).
 
-```
-$ docker run --rm -p 80:5000 blockchain
-```
+## Project layout
 
-4. To add more instances, vary the public port number before the colon:
+- `astrology.py` — sun signs, moon phase, planetary day, horoscopes
+- `astroeconomics.py` — sector maps, aura scores, watchlists, daily pulse
+- `blockchain.py` — Flask API + blockchain registry
+- `templates/index.html` + `static/` — the web app screen
 
-```
-$ docker run --rm -p 81:5000 blockchain
-$ docker run --rm -p 82:5000 blockchain
-$ docker run --rm -p 83:5000 blockchain
-```
+## Original blockchain tutorial
 
-## Installation (C# Implementation)
-
-1. Install a free copy of Visual Studio IDE (Community Edition):
-https://www.visualstudio.com/vs/
-
-2. Once installed, open the solution file (BlockChain.sln) using the File > Open > Project/Solution menu options within Visual Studio.
-
-3. From within the "Solution Explorer", right click the BlockChain.Console project and select the "Set As Startup Project" option.
-
-4. Click the "Start" button, or hit F5 to run. The program executes in a console window, and is controlled via HTTP with the same commands as the Python version.
-
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
+This repository also contains the source for [Building a Blockchain](https://medium.com/p/117428612f46).

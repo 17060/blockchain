@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AstroEconomics — Cosmic timing for markets</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,600;1,7..72,400&family=Syne:wght@500;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/app.css" />
+</head>
+<body>
+  <div class="sky-wash" aria-hidden="true"></div>
+  <div class="constellation" aria-hidden="true"></div>
+
+  <header class="topbar">
+    <a class="brand-mark" href="#top">AstroEconomics</a>
+    <nav>
+      <a href="#briefing">Briefing</a>
+      <a href="#markets">Markets</a>
+      <a href="#forecast">Forecast</a>
+      <a href="#registry">Registry</a>
+    </nav>
+  </header>
+
+  <main id="top">
+    <section class="hero">
+      <p class="brand-hero">AstroEconomics</p>
+      <h1>Read the sky. Time the market.</h1>
+      <p class="lede">
+        Daily planetary weather mapped to sectors, indexes, and your birth chart —
+        then sealed on a local blockchain registry.
+      </p>
+      <div class="cta-row">
+        <a class="btn primary" href="#briefing">Open today’s reading</a>
+        <a class="btn ghost" href="#markets">See market pulse</a>
+      </div>
+      <div class="hero-horizon" aria-hidden="true"></div>
+    </section>
+
+    <section class="pulse-strip" id="pulse" aria-live="polite">
+      <div class="pulse-loading">Loading cosmic market pulse…</div>
+    </section>
+
+    <section class="panel" id="briefing">
+      <div class="section-head">
+        <h2>Your chart briefing</h2>
+        <p>Enter a birth date to unlock a personal financial horoscope and aligned watchlist.</p>
+      </div>
+      <form id="briefing-form" class="briefing-form">
+        <label>
+          <span>Your name</span>
+          <input type="text" name="owner" placeholder="Ada" autocomplete="nickname" />
+        </label>
+        <label>
+          <span>Birth date</span>
+          <input type="date" name="birth_date" required />
+        </label>
+        <label class="check">
+          <input type="checkbox" name="register" checked />
+          <span>Register chart on-chain</span>
+        </label>
+        <button type="submit" class="btn primary">Get briefing</button>
+      </form>
+      <div id="briefing-result" class="briefing-result" hidden></div>
+    </section>
+
+    <section class="panel" id="markets">
+      <div class="section-head">
+        <h2>Market pulse</h2>
+        <p>Indexes and cosmically aligned names ranked by today’s aura scores.</p>
+      </div>
+      <div id="markets-board" class="markets-board"></div>
+    </section>
+
+    <section class="panel" id="forecast">
+      <div class="section-head">
+        <h2>Seven-day sky</h2>
+        <p>Lunar phases, day rulers, and intensity so you can plan around the noise.</p>
+      </div>
+      <div id="forecast-board" class="forecast-board"></div>
+    </section>
+
+    <section class="panel" id="registry">
+      <div class="section-head">
+        <h2>On-chain chart registry</h2>
+        <p>Birth charts mined into this node’s blockchain — immutable once written.</p>
+      </div>
+      <div id="registry-board" class="registry-board"></div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <p>AstroEconomics · entertainment and education only · not financial advice</p>
+  </footer>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

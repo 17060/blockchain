@@ -1,6 +1,6 @@
 from unittest import TestCase
 
-from blockchain import Blockchain
+from blockchain import Blockchain, app
 
 
 class BlockchainAstrologyTestCase(TestCase):
@@ -16,6 +16,7 @@ class BlockchainAstrologyTestCase(TestCase):
         self.assertEqual(transaction['transaction_type'], 'birth_chart')
         self.assertEqual(transaction['sender'], 'alice')
         self.assertEqual(transaction['sun_sign'], 'cancer')
+        self.assertEqual(transaction['glyph'], '♋')
 
     def test_get_charts_from_chain(self):
         self.blockchain.new_chart_transaction('alice', '1990-07-13')
@@ -31,3 +32,47 @@ class BlockchainAstrologyTestCase(TestCase):
     def test_invalid_chart_date_raises(self):
         with self.assertRaises(ValueError):
             self.blockchain.new_chart_transaction('alice', 'invalid-date')
+
+
+class AppRoutesTestCase(TestCase):
+
+    def setUp(self):
+        app.config['TESTING'] = True
+        self.client = app.test_client()
+
+    def test_home_serves_app(self):
+        response = self.client.get('/')
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b'AstroEconomics', response.data)
+
+    def test_pulse_endpoint(self):
+        response = self.client.get('/astroeconomics/pulse?date=2026-07-22')
+        self.assertEqual(response.status_code, 200)
+        payload = response.get_json()
+        self.assertEqual(payload['brand'], 'AstroEconomics')
+        self.assertTrue(payload['watchlist'])
+
+    def test_briefing_and_registry(self):
+        response = self.client.post(
+            '/astroeconomics/briefing',
+            json={
+                'owner': 'alice',
+                'birth_date': '1990-07-13',
+                'date': '2026-07-22',
+                'register': True,
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        payload = response.get_json()
+        self.assertEqual(payload['chart']['sun_sign'], 'cancer')
+        self.assertTrue(payload['registered'])
+
+        charts = self.client.get('/astrology/charts').get_json()['charts']
+        self.assertTrue(any(chart['sender'] == 'alice' for chart in charts))
+
+    def test_sign_lookup_includes_market_profile(self):
+        response = self.client.get('/astrology/sign?birth_date=1990-01-10')
+        self.assertEqual(response.status_code, 200)
+        payload = response.get_json()
+        self.assertEqual(payload['sun_sign'], 'capricorn')
+        self.assertIn('Infrastructure', payload['sectors'])
