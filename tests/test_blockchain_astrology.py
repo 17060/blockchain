@@ -1,6 +1,7 @@
 from unittest import TestCase
 
 from blockchain import Blockchain, app
+from ui import render_app
 
 
 class BlockchainAstrologyTestCase(TestCase):
@@ -46,20 +47,28 @@ class AppRoutesTestCase(TestCase):
         self.assertIn(b'AstroEconomics', response.data)
         self.assertIn(b'Market aura', response.data)
         self.assertIn(b'Your chart briefing', response.data)
-        # Page must not depend on a boot-time fetch to show core content.
         self.assertIn(b'Cosmic watchlist', response.data)
         self.assertIn(b'Seven-day sky', response.data)
+        self.assertIn(b'<form method="post"', response.data)
+        # No client-side boot dependency.
+        self.assertNotIn(b'<script>', response.data)
+
+    def test_home_form_briefing(self):
+        response = self.client.post('/', data={
+            'owner': 'alice',
+            'birth_date': '1990-07-13',
+            'register': '1',
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b'Cancer', response.data)
+        self.assertIn(b'Registered in block', response.data)
+        self.assertIn(b'alice', response.data)
 
     def test_health_endpoint(self):
         response = self.client.get('/health')
         self.assertEqual(response.status_code, 200)
         payload = response.get_json()
         self.assertEqual(payload['status'], 'ok')
-
-    def test_transaction_missing_body_is_json_error(self):
-        response = self.client.post('/transactions/new')
-        self.assertEqual(response.status_code, 400)
-        self.assertIn('error', response.get_json())
 
     def test_pulse_endpoint(self):
         response = self.client.get('/astroeconomics/pulse?date=2026-07-22')
@@ -92,3 +101,17 @@ class AppRoutesTestCase(TestCase):
         payload = response.get_json()
         self.assertEqual(payload['sun_sign'], 'capricorn')
         self.assertIn('Infrastructure', payload['sectors'])
+
+    def test_transaction_missing_body_is_json_error(self):
+        response = self.client.post('/transactions/new')
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('error', response.get_json())
+
+
+class UiRenderTestCase(TestCase):
+
+    def test_render_app_includes_core_copy(self):
+        html = render_app(pulse=None, charts=[], briefing=None, error='boom')
+        self.assertIn('AstroEconomics', html)
+        self.assertIn('boom', html)
+        self.assertIn('<form method="post"', html)

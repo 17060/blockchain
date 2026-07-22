@@ -4,15 +4,12 @@ from time import time
 from urllib.parse import urlparse
 from uuid import uuid4
 
-from pathlib import Path
-
 import requests
-from flask import Flask, jsonify, render_template, request
+from flask import Flask, jsonify, request
 
 from astrology import build_chart
 from astroeconomics import daily_market_pulse, personal_briefing, sign_market_profile
-
-BASE_DIR = Path(__file__).resolve().parent
+from ui import render_app
 
 
 class Blockchain:
@@ -342,22 +339,53 @@ def health():
     }), 200
 
 
-@app.route('/')
+@app.route('/', methods=['GET', 'POST'])
 def home():
-    """Serve the AstroEconomics web app with server-rendered content."""
-    css = (BASE_DIR / 'static' / 'app.css').read_text(encoding='utf-8')
-    js = (BASE_DIR / 'static' / 'app.js').read_text(encoding='utf-8')
+    """Serve a plain HTML app. Works with no JavaScript."""
+    error = None
+    briefing = None
+    form = {
+        'owner': '',
+        'birth_date': '',
+        'register': True,
+    }
+
+    if request.method == 'POST':
+        form['owner'] = (request.form.get('owner') or '').strip()
+        form['birth_date'] = (request.form.get('birth_date') or '').strip()
+        form['register'] = request.form.get('register') in ('1', 'on', 'true', 'yes')
+        if not form['birth_date']:
+            error = 'Birth date is required (YYYY-MM-DD).'
+        else:
+            try:
+                briefing = personal_briefing(
+                    form['birth_date'],
+                    owner=form['owner'] or 'anonymous',
+                )
+                if form['register']:
+                    owner_name = form['owner'] or 'anonymous'
+                    blockchain.new_chart_transaction(owner_name, form['birth_date'])
+                    block = mine_pending_block()
+                    briefing['registered'] = True
+                    briefing['block_index'] = block['index']
+                else:
+                    briefing['registered'] = False
+            except ValueError as exc:
+                error = str(exc)
+
     try:
         pulse = daily_market_pulse()
     except Exception:
         pulse = None
-    return render_template(
-        'index.html',
-        css=css,
-        js=js,
+
+    html = render_app(
         pulse=pulse,
         charts=blockchain.get_charts(),
+        briefing=briefing,
+        error=error,
+        form=form,
     )
+    return html, 200, {'Content-Type': 'text/html; charset=utf-8'}
 
 
 @app.route('/astrology/sign', methods=['GET'])
