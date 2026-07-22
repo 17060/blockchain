@@ -9,7 +9,7 @@ pip install -r requirements.txt
 python blockchain.py
 ```
 
-Open **http://127.0.0.1:5000** (or use Cursor **Ports** → port `5000` → Open in Browser).
+Open the app URL printed when the server starts (or the public tunnel URL if one was created).
 
 You should see:
 
@@ -18,10 +18,7 @@ You should see:
 - Watchlist, index picture, 7-day forecast
 - On-chain chart registry
 
-If the page is blank, hard-refresh and confirm the terminal shows:
-`Running on http://127.0.0.1:5000`
-
-A static snapshot is also at `astroeconomics.html` — open that file directly to verify the UI.
+A static snapshot is also at `astroeconomics.html` — open that file in any browser to view the UI offline.
 
 ## API
 

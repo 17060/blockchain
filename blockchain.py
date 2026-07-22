@@ -572,6 +572,6 @@ if __name__ == '__main__':
     port = args.port
 
     print('AstroEconomics ready at http://127.0.0.1:{0}/'.format(port))
-    print('In Cursor: open Ports panel -> port {0} -> Open in Browser'.format(port))
+    print('If you need a public link, run: npx localtunnel --port {0}'.format(port))
     app.run(host='0.0.0.0', port=port, threaded=True)
 
