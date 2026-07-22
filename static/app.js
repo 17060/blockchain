@@ -1,10 +1,13 @@
 (function () {
-  const pulseEl = document.getElementById('pulse');
-  const marketsEl = document.getElementById('markets-board');
-  const forecastEl = document.getElementById('forecast-board');
-  const registryEl = document.getElementById('registry-board');
   const briefingForm = document.getElementById('briefing-form');
   const briefingResult = document.getElementById('briefing-result');
+  const registryEl = document.getElementById('registry-board');
+  const statusEl = document.getElementById('client-status');
+
+  // Root-absolute paths so API calls work whether the page URL has a trailing slash.
+  function api(path) {
+    return path.charAt(0) === '/' ? path : '/' + path;
+  }
 
   function esc(value) {
     return String(value == null ? '' : value)
@@ -20,37 +23,28 @@
       .replace(/\b\w/g, function (ch) { return ch.toUpperCase(); });
   }
 
-  async function getJson(url, options) {
-    const response = await fetch(url, options);
-    const data = await response.json();
-    if (!response.ok) {
-      throw new Error(data.error || 'Request failed');
+  function setStatus(message, isError) {
+    if (!statusEl) {
+      return;
     }
-    return data;
+    statusEl.textContent = message || '';
+    statusEl.hidden = !message;
+    statusEl.className = isError ? 'status error' : 'status';
   }
 
-  function renderPulse(pulse) {
-    const moon = pulse.sky.moon_phase;
-    const lead = pulse.leading_sign;
-    pulseEl.innerHTML = [
-      '<article class="stat">',
-      '  <div class="stat-label">Market aura</div>',
-      '  <div class="aura-ring" style="--score:' + esc(pulse.market_aura) + '"><strong>' + esc(pulse.market_aura) + '</strong></div>',
-      '  <p class="stat-note">' + esc(pulse.stance) + '</p>',
-      '</article>',
-      '<article class="stat">',
-      '  <div class="stat-label">Sky now</div>',
-      '  <p class="stat-value">' + esc(moon.name) + '</p>',
-      '  <p class="stat-note">Sun in ' + esc(title(pulse.sky.sun_sign)) +
-        ' · ' + esc(title(pulse.sky.planetary_day.ruler)) + ' day' +
-        (pulse.sky.mercury_retrograde ? ' · Mercury retrograde' : '') + '</p>',
-      '</article>',
-      '<article class="stat">',
-      '  <div class="stat-label">Leading sign</div>',
-      '  <p class="stat-value">' + esc(lead.glyph) + ' ' + esc(title(lead.sign)) + '</p>',
-      '  <p class="stat-note">Aura ' + esc(lead.score) + ' · ' + esc(lead.sectors.join(', ')) + '</p>',
-      '</article>'
-    ].join('');
+  async function getJson(path, options) {
+    const response = await fetch(api(path), options);
+    const text = await response.text();
+    var data = null;
+    try {
+      data = text ? JSON.parse(text) : {};
+    } catch (err) {
+      throw new Error('Server returned a non-JSON response (' + response.status + ')');
+    }
+    if (!response.ok) {
+      throw new Error((data && data.error) || ('Request failed (' + response.status + ')'));
+    }
+    return data;
   }
 
   function renderRows(items, mapper) {
@@ -60,51 +54,10 @@
     return items.map(mapper).join('');
   }
 
-  function renderMarkets(pulse) {
-    marketsEl.innerHTML = [
-      '<div class="market-block">',
-      '  <h3>Cosmic watchlist</h3>',
-      renderRows(pulse.watchlist, function (item) {
-        return [
-          '<div class="row">',
-          '  <div class="symbol">' + esc(item.symbol) + '</div>',
-          '  <div><div>' + esc(item.name) + '</div><div class="why">' + esc(item.why) + '</div></div>',
-          '  <div class="score-pill">' + esc(item.aura_score) + '</div>',
-          '</div>'
-        ].join('');
-      }),
-      '</div>',
-      '<div class="market-block">',
-      '  <h3>Index picture</h3>',
-      renderRows(pulse.indexes, function (item) {
-        return [
-          '<div class="row">',
-          '  <div class="symbol">' + esc(item.symbol) + '</div>',
-          '  <div><div>' + esc(item.name) + ' · ' + esc(item.glyph) + ' ' + esc(title(item.sign)) + '</div>',
-          '  <div class="why">' + esc(item.sentiment) + ' · vol ' + esc(item.volatility) + '</div></div>',
-          '  <div class="score-pill">' + esc(item.aura_score) + '</div>',
-          '</div>'
-        ].join('');
-      }),
-      '</div>'
-    ].join('');
-  }
-
-  function renderForecast(pulse) {
-    forecastEl.innerHTML = renderRows(pulse.forecast, function (day) {
-      return [
-        '<article class="forecast-row">',
-        '  <strong>' + esc(title(day.weekday).slice(0, 3)) + '</strong>',
-        '  <div class="meta">' + esc(day.date.slice(5)) + '</div>',
-        '  <div class="intensity"><span style="width:' + esc(day.intensity) + '%"></span></div>',
-        '  <div class="meta">' + esc(day.moon_phase) + '</div>',
-        '  <div class="meta">' + esc(day.note) + '</div>',
-        '</article>'
-      ].join('');
-    });
-  }
-
   function renderRegistry(charts) {
+    if (!registryEl) {
+      return;
+    }
     if (!charts.length) {
       registryEl.innerHTML = '<p class="empty">No charts registered yet. Generate a briefing with “Register chart on-chain” checked.</p>';
       return;
@@ -136,7 +89,7 @@
       '    <p class="score-xl">' + esc(data.aura_score) + '</p>',
       '    <p class="meta">Personal aura · ' + esc(data.market_bias) + '</p>',
       '    <div class="chips">',
-      data.sectors.map(function (sector) {
+      (data.sectors || []).map(function (sector) {
         return '<span class="chip">' + esc(sector) + '</span>';
       }).join(''),
       '    </div>',
@@ -169,49 +122,51 @@
   }
 
   async function loadRegistry() {
-    const data = await getJson('astrology/charts');
+    const data = await getJson('/astrology/charts');
     renderRegistry(data.charts || []);
   }
 
-  async function boot() {
-    try {
-      const pulse = await getJson('astroeconomics/pulse');
-      renderPulse(pulse);
-      renderMarkets(pulse);
-      renderForecast(pulse);
-      await loadRegistry();
-    } catch (err) {
-      pulseEl.innerHTML = '<p class="error">' + esc(err.message) + '</p>';
-    }
+  if (briefingForm) {
+    briefingForm.addEventListener('submit', async function (event) {
+      event.preventDefault();
+      const form = new FormData(briefingForm);
+      const birthDate = form.get('birth_date');
+      if (!birthDate) {
+        setStatus('Choose a birth date first.', true);
+        return;
+      }
+
+      const payload = {
+        owner: String(form.get('owner') || '').trim() || 'anonymous',
+        birth_date: birthDate,
+        register: form.get('register') === 'on'
+      };
+
+      briefingResult.hidden = false;
+      briefingResult.innerHTML = '<p class="meta">Calculating chart and market affinities…</p>';
+      setStatus('Working…');
+
+      try {
+        const data = await getJson('/astroeconomics/briefing', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        renderBriefing(data);
+        if (data.registered) {
+          await loadRegistry();
+        }
+        setStatus(data.registered
+          ? 'Chart registered in block #' + data.block_index + '.'
+          : 'Briefing ready.');
+        briefingResult.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      } catch (err) {
+        briefingResult.innerHTML = '<p class="error">' + esc(err.message) + '</p>';
+        setStatus(err.message, true);
+      }
+    });
   }
 
-  briefingForm.addEventListener('submit', async function (event) {
-    event.preventDefault();
-    const form = new FormData(briefingForm);
-    const payload = {
-      owner: String(form.get('owner') || '').trim() || 'anonymous',
-      birth_date: form.get('birth_date'),
-      register: form.get('register') === 'on'
-    };
-
-    briefingResult.hidden = false;
-    briefingResult.innerHTML = '<p class="meta">Calculating chart and market affinities…</p>';
-
-    try {
-      const data = await getJson('astroeconomics/briefing', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      renderBriefing(data);
-      if (data.registered) {
-        await loadRegistry();
-      }
-      briefingResult.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    } catch (err) {
-      briefingResult.innerHTML = '<p class="error">' + esc(err.message) + '</p>';
-    }
-  });
-
-  boot();
+  // Server already rendered pulse/markets/forecast/registry. Never wipe them on load.
+  setStatus('');
 })();

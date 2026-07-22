@@ -9,7 +9,7 @@ from pathlib import Path
 import requests
 from flask import Flask, jsonify, render_template, request
 
-from astrology import build_chart, get_sun_sign
+from astrology import build_chart
 from astroeconomics import daily_market_pulse, personal_briefing, sign_market_profile
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -233,6 +233,10 @@ class Blockchain:
 
 # Instantiate the Node
 app = Flask(__name__)
+try:
+    app.json.ensure_ascii = False
+except Exception:
+    app.config['JSON_AS_ASCII'] = False
 
 # Generate a globally unique address for this node
 node_identifier = str(uuid4()).replace('-', '')
@@ -241,23 +245,21 @@ node_identifier = str(uuid4()).replace('-', '')
 blockchain = Blockchain()
 
 
-@app.route('/mine', methods=['GET'])
-def mine():
-    # We run the proof of work algorithm to get the next proof...
+def mine_pending_block():
+    """Run proof-of-work and seal current transactions into a new block."""
     last_block = blockchain.last_block
     proof = blockchain.proof_of_work(last_block)
-
-    # We must receive a reward for finding the proof.
-    # The sender is "0" to signify that this node has mined a new coin.
     blockchain.new_transaction(
-        sender="0",
+        sender='0',
         recipient=node_identifier,
         amount=1,
     )
+    return blockchain.new_block(proof, blockchain.hash(last_block))
 
-    # Forge the new Block by adding it to the chain
-    previous_hash = blockchain.hash(last_block)
-    block = blockchain.new_block(proof, previous_hash)
+
+@app.route('/mine', methods=['GET'])
+def mine():
+    block = mine_pending_block()
 
     response = {
         'message': "New Block Forged",
@@ -271,12 +273,12 @@ def mine():
 
 @app.route('/transactions/new', methods=['POST'])
 def new_transaction():
-    values = request.get_json()
+    values = request.get_json(silent=True) or {}
 
     # Check that the required fields are in the POST'ed data
     required = ['sender', 'recipient', 'amount']
     if not all(k in values for k in required):
-        return 'Missing values', 400
+        return jsonify({'error': 'sender, recipient, and amount are required'}), 400
 
     # Create a new Transaction
     index = blockchain.new_transaction(values['sender'], values['recipient'], values['amount'])
@@ -296,11 +298,11 @@ def full_chain():
 
 @app.route('/nodes/register', methods=['POST'])
 def register_nodes():
-    values = request.get_json()
+    values = request.get_json(silent=True) or {}
 
     nodes = values.get('nodes')
     if nodes is None:
-        return "Error: Please supply a valid list of nodes", 400
+        return jsonify({'error': 'Please supply a valid list of nodes'}), 400
 
     for node in nodes:
         blockchain.register_node(node)
@@ -328,6 +330,16 @@ def consensus():
         }
 
     return jsonify(response), 200
+
+
+@app.route('/health')
+def health():
+    return jsonify({
+        'status': 'ok',
+        'service': 'AstroEconomics',
+        'charts': len(blockchain.get_charts()),
+        'blocks': len(blockchain.chain),
+    }), 200
 
 
 @app.route('/')
@@ -374,28 +386,21 @@ def astrology_charts():
 
 @app.route('/astrology/charts', methods=['POST'])
 def register_chart():
-    values = request.get_json() or {}
+    values = request.get_json(silent=True) or {}
 
     required = ['owner', 'birth_date']
     if not all(k in values for k in required):
         return jsonify({'error': 'owner and birth_date are required'}), 400
 
     try:
-        index = blockchain.new_chart_transaction(values['owner'], values['birth_date'])
+        blockchain.new_chart_transaction(values['owner'], values['birth_date'])
         chart = build_chart(values['birth_date'])
     except ValueError as exc:
         return jsonify({'error': str(exc)}), 400
 
     # Persist the chart immediately so the app feels correct without a
     # separate mine step. Mining still works for classic blockchain demos.
-    last_block = blockchain.last_block
-    proof = blockchain.proof_of_work(last_block)
-    blockchain.new_transaction(
-        sender='0',
-        recipient=node_identifier,
-        amount=1,
-    )
-    block = blockchain.new_block(proof, blockchain.hash(last_block))
+    block = mine_pending_block()
 
     response = {
         'message': 'Birth chart registered and mined into block {0}'.format(block['index']),
@@ -420,7 +425,7 @@ def astroeconomics_pulse():
 def astroeconomics_briefing():
     """Personalized astrology + market briefing for a birth date."""
     if request.method == 'POST':
-        values = request.get_json() or {}
+        values = request.get_json(silent=True) or {}
         birth_date = values.get('birth_date')
         on_date = values.get('date')
         owner = values.get('owner')
@@ -442,14 +447,7 @@ def astroeconomics_briefing():
     if persist:
         owner_name = owner or 'anonymous'
         index = blockchain.new_chart_transaction(owner_name, birth_date)
-        last_block = blockchain.last_block
-        proof = blockchain.proof_of_work(last_block)
-        blockchain.new_transaction(
-            sender='0',
-            recipient=node_identifier,
-            amount=1,
-        )
-        block = blockchain.new_block(proof, blockchain.hash(last_block))
+        block = mine_pending_block()
         briefing['registered'] = True
         briefing['block_index'] = block['index']
         briefing['message'] = 'Chart queued at index {0} and mined into block {1}'.format(
@@ -469,5 +467,5 @@ if __name__ == '__main__':
     args = parser.parse_args()
     port = args.port
 
-    app.run(host='0.0.0.0', port=port)
+    app.run(host='0.0.0.0', port=port, threaded=True)
 

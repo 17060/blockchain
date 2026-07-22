@@ -163,7 +163,7 @@ def parse_birth_date(birth_date):
     try:
         return datetime.strptime(birth_date, '%Y-%m-%d').date()
     except (TypeError, ValueError) as exc:
-        raise ValueError('birth_date must use YYYY-MM-DD format') from exc
+        raise ValueError('date must use YYYY-MM-DD format') from exc
 
 
 def coerce_date(value=None):

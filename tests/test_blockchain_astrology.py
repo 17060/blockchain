@@ -44,6 +44,22 @@ class AppRoutesTestCase(TestCase):
         response = self.client.get('/')
         self.assertEqual(response.status_code, 200)
         self.assertIn(b'AstroEconomics', response.data)
+        self.assertIn(b'Market aura', response.data)
+        self.assertIn(b'Your chart briefing', response.data)
+        # Page must not depend on a boot-time fetch to show core content.
+        self.assertIn(b'Cosmic watchlist', response.data)
+        self.assertIn(b'Seven-day sky', response.data)
+
+    def test_health_endpoint(self):
+        response = self.client.get('/health')
+        self.assertEqual(response.status_code, 200)
+        payload = response.get_json()
+        self.assertEqual(payload['status'], 'ok')
+
+    def test_transaction_missing_body_is_json_error(self):
+        response = self.client.post('/transactions/new')
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('error', response.get_json())
 
     def test_pulse_endpoint(self):
         response = self.client.get('/astroeconomics/pulse?date=2026-07-22')
