@@ -4,11 +4,15 @@ from time import time
 from urllib.parse import urlparse
 from uuid import uuid4
 
+from pathlib import Path
+
 import requests
 from flask import Flask, jsonify, render_template, request
 
 from astrology import build_chart, get_sun_sign
 from astroeconomics import daily_market_pulse, personal_briefing, sign_market_profile
+
+BASE_DIR = Path(__file__).resolve().parent
 
 
 class Blockchain:
@@ -328,8 +332,20 @@ def consensus():
 
 @app.route('/')
 def home():
-    """Serve the AstroEconomics web app."""
-    return render_template('index.html')
+    """Serve the AstroEconomics web app with server-rendered content."""
+    css = (BASE_DIR / 'static' / 'app.css').read_text(encoding='utf-8')
+    js = (BASE_DIR / 'static' / 'app.js').read_text(encoding='utf-8')
+    try:
+        pulse = daily_market_pulse()
+    except Exception:
+        pulse = None
+    return render_template(
+        'index.html',
+        css=css,
+        js=js,
+        pulse=pulse,
+        charts=blockchain.get_charts(),
+    )
 
 
 @app.route('/astrology/sign', methods=['GET'])

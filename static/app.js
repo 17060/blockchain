@@ -169,13 +169,13 @@
   }
 
   async function loadRegistry() {
-    const data = await getJson('/astrology/charts');
+    const data = await getJson('astrology/charts');
     renderRegistry(data.charts || []);
   }
 
   async function boot() {
     try {
-      const pulse = await getJson('/astroeconomics/pulse');
+      const pulse = await getJson('astroeconomics/pulse');
       renderPulse(pulse);
       renderMarkets(pulse);
       renderForecast(pulse);
@@ -198,7 +198,7 @@
     briefingResult.innerHTML = '<p class="meta">Calculating chart and market affinities…</p>';
 
     try {
-      const data = await getJson('/astroeconomics/briefing', {
+      const data = await getJson('astroeconomics/briefing', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)

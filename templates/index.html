@@ -4,10 +4,9 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>AstroEconomics — Cosmic timing for markets</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,600;1,7..72,400&family=Syne:wght@500;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/static/app.css" />
+  <style>
+{{ css|safe }}
+  </style>
 </head>
 <body>
   <div class="sky-wash" aria-hidden="true"></div>
@@ -39,7 +38,29 @@
     </section>
 
     <section class="pulse-strip" id="pulse" aria-live="polite">
+      {% if pulse %}
+      <article class="stat">
+        <div class="stat-label">Market aura</div>
+        <div class="aura-ring" style="--score:{{ pulse.market_aura }}"><strong>{{ pulse.market_aura }}</strong></div>
+        <p class="stat-note">{{ pulse.stance }}</p>
+      </article>
+      <article class="stat">
+        <div class="stat-label">Sky now</div>
+        <p class="stat-value">{{ pulse.sky.moon_phase.name }}</p>
+        <p class="stat-note">
+          Sun in {{ pulse.sky.sun_sign|title }}
+          · {{ pulse.sky.planetary_day.ruler|title }} day
+          {% if pulse.sky.mercury_retrograde %} · Mercury retrograde{% endif %}
+        </p>
+      </article>
+      <article class="stat">
+        <div class="stat-label">Leading sign</div>
+        <p class="stat-value">{{ pulse.leading_sign.glyph }} {{ pulse.leading_sign.sign|title }}</p>
+        <p class="stat-note">Aura {{ pulse.leading_sign.score }} · {{ pulse.leading_sign.sectors|join(', ') }}</p>
+      </article>
+      {% else %}
       <div class="pulse-loading">Loading cosmic market pulse…</div>
+      {% endif %}
     </section>
 
     <section class="panel" id="briefing">
@@ -70,7 +91,36 @@
         <h2>Market pulse</h2>
         <p>Indexes and cosmically aligned names ranked by today’s aura scores.</p>
       </div>
-      <div id="markets-board" class="markets-board"></div>
+      <div id="markets-board" class="markets-board">
+        {% if pulse %}
+        <div class="market-block">
+          <h3>Cosmic watchlist</h3>
+          {% for item in pulse.watchlist %}
+          <div class="row">
+            <div class="symbol">{{ item.symbol }}</div>
+            <div>
+              <div>{{ item.name }}</div>
+              <div class="why">{{ item.why }}</div>
+            </div>
+            <div class="score-pill">{{ item.aura_score }}</div>
+          </div>
+          {% endfor %}
+        </div>
+        <div class="market-block">
+          <h3>Index picture</h3>
+          {% for item in pulse.indexes %}
+          <div class="row">
+            <div class="symbol">{{ item.symbol }}</div>
+            <div>
+              <div>{{ item.name }} · {{ item.glyph }} {{ item.sign|title }}</div>
+              <div class="why">{{ item.sentiment }} · vol {{ item.volatility }}</div>
+            </div>
+            <div class="score-pill">{{ item.aura_score }}</div>
+          </div>
+          {% endfor %}
+        </div>
+        {% endif %}
+      </div>
     </section>
 
     <section class="panel" id="forecast">
@@ -78,7 +128,19 @@
         <h2>Seven-day sky</h2>
         <p>Lunar phases, day rulers, and intensity so you can plan around the noise.</p>
       </div>
-      <div id="forecast-board" class="forecast-board"></div>
+      <div id="forecast-board" class="forecast-board">
+        {% if pulse %}
+        {% for day in pulse.forecast %}
+        <article class="forecast-row">
+          <strong>{{ day.weekday[:3]|title }}</strong>
+          <div class="meta">{{ day.date[5:] }}</div>
+          <div class="intensity"><span style="width:{{ day.intensity }}%"></span></div>
+          <div class="meta">{{ day.moon_phase }}</div>
+          <div class="meta">{{ day.note }}</div>
+        </article>
+        {% endfor %}
+        {% endif %}
+      </div>
     </section>
 
     <section class="panel" id="registry">
@@ -86,7 +148,22 @@
         <h2>On-chain chart registry</h2>
         <p>Birth charts mined into this node’s blockchain — immutable once written.</p>
       </div>
-      <div id="registry-board" class="registry-board"></div>
+      <div id="registry-board" class="registry-board">
+        {% if charts %}
+        {% for chart in charts %}
+        <article class="registry-row">
+          <div class="glyph">{{ chart.glyph or '✦' }}</div>
+          <div>
+            <strong>{{ chart.sender }}</strong>
+            <div class="meta">{{ chart.sun_sign|title }} · born {{ chart.birth_date }} · {{ chart.element }}/{{ chart.modality }}</div>
+          </div>
+          <div class="meta">on-chain</div>
+        </article>
+        {% endfor %}
+        {% else %}
+        <p class="empty">No charts registered yet. Generate a briefing with “Register chart on-chain” checked.</p>
+        {% endif %}
+      </div>
     </section>
   </main>
 
@@ -94,6 +171,8 @@
     <p>AstroEconomics · entertainment and education only · not financial advice</p>
   </footer>
 
-  <script src="/static/app.js"></script>
+  <script>
+{{ js|safe }}
+  </script>
 </body>
 </html>

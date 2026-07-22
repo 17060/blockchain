@@ -9,8 +9,8 @@
   --copper: #9a6b2f;
   --line: rgba(16, 35, 58, 0.12);
   --glow-soft: rgba(11, 122, 116, 0.18);
-  --font-display: "Syne", sans-serif;
-  --font-body: "Literata", Georgia, serif;
+  --font-display: "Syne", "Avenir Next", "Segoe UI", sans-serif;
+  --font-body: "Literata", Georgia, "Times New Roman", serif;
   --radius: 18px;
   --max: 1080px;
 }
@@ -153,14 +153,8 @@ nav a:hover {
 }
 
 @keyframes rise {
-  from {
-    opacity: 0;
-    transform: translateY(18px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { transform: translateY(12px); }
+  to { transform: translateY(0); }
 }
 
 .hero-horizon {
@@ -285,8 +279,8 @@ nav a:hover {
 }
 
 @keyframes spin-in {
-  from { filter: saturate(0.6); transform: rotate(-20deg) scale(0.92); opacity: 0; }
-  to { filter: none; transform: none; opacity: 1; }
+  from { filter: saturate(0.6); transform: rotate(-12deg) scale(0.96); }
+  to { filter: none; transform: none; }
 }
 
 .section-head {
